@@ -1,77 +1,34 @@
 import asyncio
 import time
 import random
-import threading
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    filters
-)
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from telegram.error import RetryAfter, BadRequest
 
-# =============== MULTI BOT TOKENS ===============
-BOT_TOKENS = [
-    "8519181173:AAF9dPbQ5J5N_Q6iAaQBULFpaDJTX_CNmGs",
-    "8510189857:AAE1FWYZcsLRM_a8vMBoytnpbkGxaQN5Tok",
-    "8017630980:AAE622-he5-FFoZ9PkTpdS2nO9lLY0nCd8g"
-]
-
-OWNER_ID = 8453291493
-
-raid_tasks = {}
-gcnc_tasks = {}
+BOT_TOKEN = "8519181173:AAF9dPbQ5J5N_Q6iAaQBULFpaDJTX_CNmGs"
 
 EMOJIS = ["🔥","⚡","💀","👑","😈","🚀","💥","🌀","🧨","🎯","🐉","🦁","☠️"]
 
-# ================= COMMANDS =================
+gcnc_tasks = {}
+
 async def start(update, context):
-    await update.message.reply_text("🤖 Multi Bot Online\n/help")
+    await update.message.reply_text("🤖 Bot Online\n/help")
 
 async def help_cmd(update, context):
     await update.message.reply_text(
         "/spam <count> <text>\n"
-        "/raid <count> <text>\n"
-        "/stopraid\n"
         "/gcnc <count> <name>\n"
         "/stopgcnc"
     )
 
 async def spam(update, context):
-    try:
-        count = int(context.args[0])
-        text = " ".join(context.args[1:])
-        for _ in range(count):
-            await update.message.reply_text(text)
-            await asyncio.sleep(0.1)
-    except:
-        await update.message.reply_text("Usage: /spam <count> <text>")
-
-async def raid(update, context):
-    chat_id = update.effective_chat.id
     count = int(context.args[0])
     text = " ".join(context.args[1:])
-
-    async def loop():
-        for _ in range(count):
-            await update.message.reply_text(text)
-            await asyncio.sleep(0.1)
-
-    raid_tasks[chat_id] = asyncio.create_task(loop())
-    await update.message.reply_text("🔥 Raid started")
-
-async def stopraid(update, context):
-    task = raid_tasks.pop(update.effective_chat.id, None)
-    if task:
-        task.cancel()
-        await update.message.reply_text("🛑 Raid stopped")
+    for _ in range(count):
+        await update.message.reply_text(text)
+        await asyncio.sleep(0.1)
 
 async def gcnc(update, context):
     parts = update.message.text.split(maxsplit=2)
-    if len(parts) < 3:
-        await update.message.reply_text("Usage: /gcnc <count> <name>")
-        return
-
     chat = update.effective_chat
     base = parts[2]
 
@@ -88,42 +45,20 @@ async def gcnc(update, context):
                 await asyncio.sleep(5)
 
     gcnc_tasks[chat.id] = asyncio.create_task(loop())
-    await update.message.reply_text("✅ GC Name Change Started")
+    await update.message.reply_text("✅ GCNC started")
 
 async def stopgcnc(update, context):
     task = gcnc_tasks.pop(update.effective_chat.id, None)
     if task:
         task.cancel()
-        await update.message.reply_text("🛑 GC Name Change Stopped")
+        await update.message.reply_text("🛑 GCNC stopped")
 
-# ================= BOT THREAD =================
-def start_bot(token):
-    # 🔥 FIX: create event loop for this thread
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+app = Application.builder().token(BOT_TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("help", help_cmd))
+app.add_handler(CommandHandler("spam", spam))
+app.add_handler(CommandHandler("gcnc", gcnc))
+app.add_handler(CommandHandler("stopgcnc", stopgcnc))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, start))
 
-    app = Application.builder().token(token).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_cmd))
-    app.add_handler(CommandHandler("spam", spam))
-    app.add_handler(CommandHandler("raid", raid))
-    app.add_handler(CommandHandler("stopraid", stopraid))
-    app.add_handler(CommandHandler("gcnc", gcnc))
-    app.add_handler(CommandHandler("stopgcnc", stopgcnc))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, start))
-
-    print("✅ Bot running:", token[:10])
-    app.run_polling()
-
-# ================= MAIN =================
-if __name__ == "__main__":
-    for token in BOT_TOKENS:
-        threading.Thread(
-            target=start_bot,
-            args=(token,),
-            daemon=True
-        ).start()
-
-    while True:
-        time.sleep(60)
+app.run_polling()
