@@ -24,7 +24,7 @@ gcnc_tasks = {}
 
 EMOJIS = ["🔥","⚡","💀","👑","😈","🚀","💥","🌀","🧨","🎯","🐉","🦁","☠️"]
 
-# =============== COMMANDS ===============
+# ================= COMMANDS =================
 async def start(update, context):
     await update.message.reply_text("🤖 Multi Bot Online\n/help")
 
@@ -37,7 +37,6 @@ async def help_cmd(update, context):
         "/stopgcnc"
     )
 
-# ---------- SPAM ----------
 async def spam(update, context):
     try:
         count = int(context.args[0])
@@ -48,22 +47,18 @@ async def spam(update, context):
     except:
         await update.message.reply_text("Usage: /spam <count> <text>")
 
-# ---------- RAID ----------
 async def raid(update, context):
-    try:
-        count = int(context.args[0])
-        text = " ".join(context.args[1:])
-        chat_id = update.effective_chat.id
+    chat_id = update.effective_chat.id
+    count = int(context.args[0])
+    text = " ".join(context.args[1:])
 
-        async def loop():
-            for _ in range(count):
-                await update.message.reply_text(text)
-                await asyncio.sleep(0.1)
+    async def loop():
+        for _ in range(count):
+            await update.message.reply_text(text)
+            await asyncio.sleep(0.1)
 
-        raid_tasks[chat_id] = asyncio.create_task(loop())
-        await update.message.reply_text("🔥 Raid started")
-    except:
-        await update.message.reply_text("Usage: /raid <count> <text>")
+    raid_tasks[chat_id] = asyncio.create_task(loop())
+    await update.message.reply_text("🔥 Raid started")
 
 async def stopraid(update, context):
     task = raid_tasks.pop(update.effective_chat.id, None)
@@ -71,7 +66,6 @@ async def stopraid(update, context):
         task.cancel()
         await update.message.reply_text("🛑 Raid stopped")
 
-# ---------- GC NAME CHANGE (FIXED & UNLIMITED) ----------
 async def gcnc(update, context):
     parts = update.message.text.split(maxsplit=2)
     if len(parts) < 3:
@@ -102,8 +96,12 @@ async def stopgcnc(update, context):
         task.cancel()
         await update.message.reply_text("🛑 GC Name Change Stopped")
 
-# =============== BOT THREAD ===============
+# ================= BOT THREAD =================
 def start_bot(token):
+    # 🔥 FIX: create event loop for this thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     app = Application.builder().token(token).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -118,10 +116,14 @@ def start_bot(token):
     print("✅ Bot running:", token[:10])
     app.run_polling()
 
-# =============== MAIN ===============
+# ================= MAIN =================
 if __name__ == "__main__":
     for token in BOT_TOKENS:
-        threading.Thread(target=start_bot, args=(token,), daemon=True).start()
+        threading.Thread(
+            target=start_bot,
+            args=(token,),
+            daemon=True
+        ).start()
 
     while True:
         time.sleep(60)
