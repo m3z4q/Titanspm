@@ -1,6 +1,6 @@
-import asyncio
 import time
 import random
+import threading
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -9,7 +9,7 @@ from telegram.ext import (
 )
 from telegram.error import RetryAfter, BadRequest
 
-# ================= MULTI BOT CONFIG =================
+# ================= MULTI BOT TOKENS =================
 BOT_TOKENS = [
     "8519181173:AAF9dPbQ5J5N_Q6iAaQBULFpaDJTX_CNmGs",
     "8510189857:AAE1FWYZcsLRM_a8vMBoytnpbkGxaQN5Tok",
@@ -18,7 +18,6 @@ BOT_TOKENS = [
 
 OWNER_ID = 8453291493
 
-# ================= STORAGE =================
 raid_tasks = {}
 gcnc_tasks = {}
 
@@ -43,31 +42,11 @@ async def spam(update, context):
         text = " ".join(context.args[1:])
         for _ in range(count):
             await update.message.reply_text(text)
-            await asyncio.sleep(0.4)
+            await context.application.bot._loop.create_task(
+                context.application.bot._loop.run_in_executor(None, time.sleep, 0.4)
+            )
     except:
         await update.message.reply_text("Usage: /spam <count> <text>")
-
-async def raid(update, context):
-    try:
-        chat_id = update.effective_chat.id
-        count = int(context.args[0])
-        text = " ".join(context.args[1:])
-
-        async def task():
-            for _ in range(count):
-                await update.message.reply_text(text)
-                await asyncio.sleep(0.5)
-
-        raid_tasks[chat_id] = asyncio.create_task(task())
-        await update.message.reply_text("🔥 Raid started")
-    except:
-        await update.message.reply_text("Usage: /raid <count> <text>")
-
-async def stopraid(update, context):
-    task = raid_tasks.pop(update.effective_chat.id, None)
-    if task:
-        task.cancel()
-        await update.message.reply_text("🛑 Raid stopped")
 
 async def gcnc(update, context):
     parts = update.message.text.split(maxsplit=2)
@@ -76,51 +55,40 @@ async def gcnc(update, context):
         return
 
     chat = update.effective_chat
-    base_name = parts[2]
+    base = parts[2]
 
-    async def task():
+    async def loop():
         i = 0
         while True:
             try:
-                title = f"{random.choice(EMOJIS)} {base_name} {i+1}"
-                await chat.set_title(title)
+                await chat.set_title(f"{random.choice(EMOJIS)} {base} {i+1}")
                 i += 1
-                await asyncio.sleep(2)
+                await context.application.bot._loop.run_in_executor(None, time.sleep, 2)
             except RetryAfter as e:
-                await asyncio.sleep(e.retry_after + 2)
+                await context.application.bot._loop.run_in_executor(None, time.sleep, e.retry_after)
             except BadRequest:
-                await asyncio.sleep(5)
+                await context.application.bot._loop.run_in_executor(None, time.sleep, 5)
 
-    gcnc_tasks[chat.id] = asyncio.create_task(task())
-    await update.message.reply_text("✅ GC Name Change Started (Unlimited)")
+    gcnc_tasks[chat.id] = context.application.create_task(loop())
+    await update.message.reply_text("✅ GC Name Change Started")
 
-async def stopgcnc(update, context):
-    task = gcnc_tasks.pop(update.effective_chat.id, None)
-    if task:
-        task.cancel()
-        await update.message.reply_text("🛑 GC Name Change Stopped")
-
-# ================= BOT STARTER =================
-def run_bot(token):
+# ================= BOT THREAD =================
+def start_bot(token):
     app = Application.builder().token(token).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("spam", spam))
-    app.add_handler(CommandHandler("raid", raid))
-    app.add_handler(CommandHandler("stopraid", stopraid))
     app.add_handler(CommandHandler("gcnc", gcnc))
-    app.add_handler(CommandHandler("stopgcnc", stopgcnc))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, start))
 
-    app.run_polling(close_loop=False)
+    print(f"✅ Bot running: {token[:10]}")
+    app.run_polling()
 
 # ================= MAIN =================
-async def main():
-    tasks = []
-    for token in BOT_TOKENS:
-        tasks.append(asyncio.to_thread(run_bot, token))
-    await asyncio.gather(*tasks)
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    for token in BOT_TOKENS:
+        threading.Thread(target=start_bot, args=(token,), daemon=True).start()
+
+    while True:
+        time.sleep(10)
